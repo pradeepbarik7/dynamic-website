@@ -1,0 +1,6 @@
+{
+  "name": "Mainframe Hero",
+  "description": "A modern, interactive hero section with mouse video scrubbing, typewriter animation, and multi-select service pills.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
