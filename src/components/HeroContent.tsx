@@ -6,20 +6,30 @@ import { useTypewriter } from '../hooks/useTypewriter';
 const SERVICE_OPTIONS = ['Brand', 'Digital', 'Campaign', 'Others'] as const;
 
 interface HeroContentProps {
+  services?: string[];
+  onToggleService?: (service: string) => void;
   onInquire?: (selected: string[]) => void;
 }
 
-export default function HeroContent({ onInquire }: HeroContentProps) {
+export default function HeroContent({
+  services: controlledServices,
+  onToggleService: controlledToggleService,
+  onInquire,
+}: HeroContentProps) {
   const { displayed, done } = useTypewriter("we'd love to\nhear from you!", 38, 600);
-  const [services, setServices] = useState<string[]>([]);
+  const [internalServices, setInternalServices] = useState<string[]>([]);
   const [submittedModalOpen, setSubmittedModalOpen] = useState(false);
 
+  const services = controlledServices !== undefined ? controlledServices : internalServices;
+
   const toggleService = (option: string) => {
-    setServices((prev) =>
-      prev.includes(option)
-        ? prev.filter((item) => item !== option)
-        : [...prev, option]
-    );
+    if (controlledToggleService) {
+      controlledToggleService(option);
+    } else {
+      setInternalServices((prev) =>
+        prev.includes(option) ? prev.filter((item) => item !== option) : [...prev, option]
+      );
+    }
   };
 
   const handleLetsGo = () => {
@@ -30,10 +40,10 @@ export default function HeroContent({ onInquire }: HeroContentProps) {
   };
 
   return (
-    <div className="relative z-10 flex flex-col order-first lg:order-none w-full bg-black lg:bg-transparent pb-8 lg:pb-0 lg:min-h-screen">
+    <div className="relative z-10 flex flex-col w-full bg-transparent min-h-[90vh] lg:min-h-screen justify-center pt-20 sm:pt-24 lg:pt-0">
       <main
         id="spade-hero"
-        className="w-full max-w-7xl mx-auto px-6 py-12 flex-1 flex flex-col justify-center"
+        className="w-full max-w-7xl mx-auto px-6 py-8 sm:py-12 flex-1 flex flex-col justify-center"
       >
         <div className="max-w-3xl lg:max-w-xl xl:max-w-2xl">
           {/* Headline with Typewriter */}

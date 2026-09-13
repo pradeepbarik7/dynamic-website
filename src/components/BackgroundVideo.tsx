@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Play, Pause, Compass } from 'lucide-react';
 
 const LOCAL_VIDEO_SRC = '/hero-video.mp4';
 const VIDEO_SRC =
@@ -9,8 +10,11 @@ export default function BackgroundVideo() {
   const prevXRef = useRef<number | null>(null);
   const targetTimeRef = useRef<number>(0);
   const isSeekingRef = useRef<boolean>(false);
+  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [isInteracting, setIsInteracting] = useState<boolean>(false);
+  const interactionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Desktop Mouse Scrubbing Hook with smooth LERP and seek throttling
+  // Unified Mouse (Desktop) and Touch (Mobile) Scrubbing Hook with smooth LERP and seek throttling
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -34,23 +38,28 @@ export default function BackgroundVideo() {
     video.addEventListener('seeking', handleSeeking);
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (window.innerWidth < 1024) return;
+    const onPointerMove = (clientX: number) => {
       if (!video || !video.duration || isNaN(video.duration)) return;
 
-      const currentX = e.clientX;
+      setIsInteracting(true);
+      if (interactionTimeoutRef.current) clearTimeout(interactionTimeoutRef.current);
+      interactionTimeoutRef.current = setTimeout(() => {
+        setIsInteracting(false);
+      }, 1500);
+
       if (prevXRef.current === null) {
-        prevXRef.current = currentX;
+        prevXRef.current = clientX;
         targetTimeRef.current = video.currentTime;
         lerpedTime = video.currentTime;
         return;
       }
 
-      const delta = currentX - prevXRef.current;
-      prevXRef.current = currentX;
+      const delta = clientX - prevXRef.current;
+      prevXRef.current = clientX;
 
       // Calculate time delta relative to viewport width
-      const timeOffset = (delta / window.innerWidth) * 0.9 * video.duration;
+      const sensitivity = window.innerWidth < 1024 ? 1.4 : 0.9;
+      const timeOffset = (delta / window.innerWidth) * sensitivity * video.duration;
       let newTime = targetTimeRef.current + timeOffset;
 
       // Clamp between 0 and duration
@@ -59,16 +68,41 @@ export default function BackgroundVideo() {
 
       if (!video.paused) {
         video.pause();
+        setIsPlaying(false);
       }
+    };
+
+    // Desktop Mouse Handlers
+    const handleMouseMove = (e: MouseEvent) => {
+      onPointerMove(e.clientX);
     };
 
     const handleMouseLeave = () => {
       prevXRef.current = null;
     };
 
+    // Mobile Touch Handlers
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        prevXRef.current = e.touches[0].clientX;
+        targetTimeRef.current = video.currentTime;
+        lerpedTime = video.currentTime;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        onPointerMove(e.touches[0].clientX);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      prevXRef.current = null;
+    };
+
     // Smooth continuous render loop
     const renderLoop = () => {
-      if (video && video.duration && !isNaN(video.duration) && window.innerWidth >= 1024) {
+      if (video && video.duration && !isNaN(video.duration)) {
         const target = targetTimeRef.current;
         const diff = target - lerpedTime;
 
@@ -104,60 +138,94 @@ export default function BackgroundVideo() {
     animFrameId = requestAnimationFrame(renderLoop);
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     window.addEventListener('mouseleave', handleMouseLeave);
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     return () => {
       cancelAnimationFrame(animFrameId);
+      if (interactionTimeoutRef.current) clearTimeout(interactionTimeoutRef.current);
       video.removeEventListener('seeked', handleSeeked);
       video.removeEventListener('seeking', handleSeeking);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseleave', handleMouseLeave);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
   }, []);
 
-  // Mobile Autoplay Hook: Because scrubbing is disabled on mobile frames, trigger normal playback for screens < 1024 width
-  useEffect(() => {
+  const togglePlayback = () => {
     const video = videoRef.current;
     if (!video) return;
 
-    const checkAndPlayMobile = () => {
-      if (window.innerWidth < 1024) {
-        video.autoplay = true;
-        video.loop = true;
-        video.play().catch(() => {
-          // Handled gracefully if browser restricts autoplay
-        });
-      } else {
-        video.autoplay = false;
-        video.pause();
-      }
-    };
-
-    checkAndPlayMobile();
-    window.addEventListener('resize', checkAndPlayMobile);
-
-    return () => {
-      window.removeEventListener('resize', checkAndPlayMobile);
-    };
-  }, []);
+    if (video.paused) {
+      video.play().then(() => setIsPlaying(true)).catch(() => {});
+    } else {
+      video.pause();
+      setIsPlaying(false);
+    }
+  };
 
   return (
     <div
       id="hero-bg-video-container"
-      className="order-last lg:order-none relative lg:absolute lg:inset-y-0 lg:left-1/2 lg:right-0 lg:w-1/2 lg:h-full lg:z-0 overflow-hidden pointer-events-none w-full aspect-square md:aspect-video lg:aspect-auto bg-black"
+      className="absolute inset-0 lg:inset-y-0 lg:left-1/2 lg:right-0 lg:w-1/2 lg:h-full z-0 overflow-hidden bg-black"
     >
-      <div className="hidden lg:block absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-black via-black/50 to-transparent pointer-events-none z-10" />
+      {/* Mobile Dark Gradient Overlay to ensure text legibility while showing character */}
+      <div className="block lg:hidden absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/40 pointer-events-none z-10" />
+      <div className="block lg:hidden absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent pointer-events-none z-10" />
+
+      {/* Desktop Left Edge Blending Gradient */}
+      <div className="hidden lg:block absolute inset-y-0 left-0 w-36 bg-gradient-to-r from-black via-black/60 to-transparent pointer-events-none z-10" />
+      <div className="hidden lg:block absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black to-transparent pointer-events-none z-10" />
+
       <video
         ref={videoRef}
         muted
         playsInline
-        preload="auto"
+        autoPlay
         loop
-        className="w-full h-full object-cover object-center"
+        preload="auto"
+        className="w-full h-full object-cover object-center sm:object-right lg:object-center opacity-45 sm:opacity-60 lg:opacity-100 transition-opacity duration-700"
       >
         <source src={LOCAL_VIDEO_SRC} type="video/mp4" />
         <source src={VIDEO_SRC} type="video/mp4" />
       </video>
+
+      {/* Interactive 3D Scrub & Playback Status Pill */}
+      <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2 pointer-events-auto">
+        <button
+          type="button"
+          onClick={togglePlayback}
+          aria-label={isPlaying ? 'Pause video' : 'Play video'}
+          className="px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/90 text-white text-xs font-medium border border-neutral-700/60 backdrop-blur-md flex items-center gap-1.5 transition-all cursor-pointer select-none"
+        >
+          {isPlaying ? (
+            <>
+              <Pause className="w-3 h-3 text-emerald-400" />
+              <span className="hidden sm:inline">Pause</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-3 h-3 text-white fill-white" />
+              <span className="hidden sm:inline">Play</span>
+            </>
+          )}
+        </button>
+
+        <div className="px-3 py-1.5 rounded-full bg-black/60 text-neutral-300 text-xs font-normal border border-neutral-700/60 backdrop-blur-md flex items-center gap-1.5 select-none">
+          <Compass className={`w-3 h-3 ${isInteracting ? 'text-emerald-400 animate-spin' : 'text-neutral-400'}`} />
+          <span className="hidden sm:inline">
+            {isInteracting ? 'Scrubbing 3D Head' : 'Drag cursor to scrub'}
+          </span>
+          <span className="sm:hidden">
+            {isInteracting ? 'Scrubbing' : 'Swipe to scrub'}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
+

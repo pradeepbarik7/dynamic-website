@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface NavbarProps {
   onGetInTouchClick?: () => void;
@@ -6,29 +6,46 @@ interface NavbarProps {
 
 export default function Navbar({ onGetInTouchClick }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   const navLinks = ['Labs', 'Studio', 'Openings', 'Shop'];
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 40);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <>
       <header
         id="mainframe-header"
-        className="fixed top-0 inset-x-0 z-10 px-5 sm:px-8 py-4 sm:py-5 flex flex-row justify-between items-center bg-transparent"
+        className={`fixed top-0 inset-x-0 z-40 px-5 sm:px-8 py-4 sm:py-5 flex flex-row justify-between items-center transition-all duration-300 ${
+          isScrolled
+            ? 'bg-black/80 backdrop-blur-md'
+            : 'bg-transparent'
+        }`}
       >
         {/* Logo (Left side) */}
-        <div id="mainframe-logo" className="flex flex-row items-center gap-3">
+        <a
+          href="#"
+          id="mainframe-logo"
+          className="flex flex-row items-center gap-3 cursor-pointer"
+        >
           <span className="text-[21px] sm:text-[26px] tracking-tight text-white font-medium select-none">
             Mainframe&reg;
           </span>
           <span className="text-[25px] sm:text-[30px] text-white select-none tracking-[-0.02em] font-medium leading-none mb-1">
             &#10033;
           </span>
-        </div>
+        </a>
 
         {/* Desktop Nav Links (Center) */}
         <nav
           id="desktop-nav"
-          className="hidden md:flex flex-row items-center text-[23px] text-white font-normal"
+          className="hidden md:flex flex-row items-center text-[21px] lg:text-[23px] text-white font-normal"
         >
           {navLinks.map((link, index) => (
             <span key={link} className="flex items-center">
@@ -56,7 +73,7 @@ export default function Navbar({ onGetInTouchClick }: NavbarProps) {
                 onGetInTouchClick();
               }
             }}
-            className="text-[23px] text-white underline underline-offset-2 hover:opacity-60 transition-opacity cursor-pointer"
+            className="text-[21px] lg:text-[23px] text-white underline underline-offset-2 hover:opacity-60 transition-opacity cursor-pointer"
           >
             Get in touch
           </a>
@@ -69,7 +86,7 @@ export default function Navbar({ onGetInTouchClick }: NavbarProps) {
           aria-label="Toggle mobile menu"
           aria-expanded={isMobileMenuOpen}
           onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-          className="md:hidden flex flex-col justify-center items-center w-8 h-8 gap-[5px] focus:outline-none relative z-20 cursor-pointer"
+          className="md:hidden flex flex-col justify-center items-center w-8 h-8 gap-[5px] focus:outline-none relative z-50 cursor-pointer"
         >
           <span
             className={`w-6 h-[2px] bg-white transition-all duration-300 origin-center ${
@@ -92,7 +109,7 @@ export default function Navbar({ onGetInTouchClick }: NavbarProps) {
       {/* Mobile Navigation Overlay */}
       <div
         id="mobile-nav-overlay"
-        className={`fixed inset-0 z-[9] bg-black/95 backdrop-blur-sm md:hidden flex flex-col justify-center items-center px-8 transition-all duration-300 ${
+        className={`fixed inset-0 z-40 bg-black/95 backdrop-blur-md md:hidden flex flex-col justify-center items-center px-8 transition-all duration-300 ${
           isMobileMenuOpen
             ? 'opacity-100 pointer-events-auto'
             : 'opacity-0 pointer-events-none'
@@ -128,3 +145,4 @@ export default function Navbar({ onGetInTouchClick }: NavbarProps) {
     </>
   );
 }
+
